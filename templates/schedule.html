@@ -23,6 +23,7 @@
   --wristband: #d4a017;
   --sched: #f0c040;
   --walk: #5ba8f7;
+  --parking: #17a2b8;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -104,6 +105,7 @@ header {
 .btn:hover { opacity: 0.85; }
 .btn--danger { background: #c0392b; }
 .btn--secondary { background: var(--surface2); border: 1px solid var(--border); }
+.btn--parking { background: var(--parking); }
 
 /* Day tabs */
 .day-tabs {
@@ -158,9 +160,193 @@ header {
   width: 40%;
   min-width: 350px;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
-#map { width: 100%; height: 100%; }
+#map { width: 100%; flex: 1; }
+
+/* Parking panel */
+.parking-panel {
+  background: var(--surface);
+  border-top: 2px solid var(--parking);
+  max-height: 45%;
+  overflow-y: auto;
+  display: none;
+}
+
+.parking-panel.open { display: block; }
+
+.parking-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 5;
+}
+
+.parking-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--parking);
+  letter-spacing: 0.5px;
+}
+
+.parking-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.parking-select {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  max-width: 180px;
+  cursor: pointer;
+}
+
+.parking-select:focus { border-color: var(--parking); outline: none; }
+
+.parking-sort {
+  display: flex;
+  gap: 2px;
+}
+
+.sort-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sort-btn:first-child { border-radius: 4px 0 0 4px; }
+.sort-btn:last-child { border-radius: 0 4px 4px 0; }
+.sort-btn.active { background: var(--parking); color: #fff; border-color: var(--parking); }
+.sort-btn:hover:not(.active) { border-color: var(--parking); color: var(--text); }
+
+.close-parking {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.close-parking:hover { color: var(--text); }
+
+.parking-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.parking-item:hover { background: var(--surface2); }
+
+.parking-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(23, 162, 184, 0.15);
+  color: var(--parking);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.parking-details { flex: 1; min-width: 0; }
+
+.parking-name {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.parking-addr {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.parking-notes {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.parking-stats {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.parking-price {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.parking-price-label {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.parking-distance {
+  font-size: 12px;
+  color: var(--walk);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.parking-walk-time {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.parking-spaces {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.parking-toggle {
+  position: absolute;
+  bottom: 0;
+  right: 12px;
+  z-index: 1000;
+  background: var(--parking);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+  transition: all 0.15s;
+}
+
+.parking-toggle:hover { opacity: 0.9; }
+.parking-toggle.open { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); border-bottom: none; }
 
 /* Empty state */
 .empty-state {
@@ -396,9 +582,9 @@ header {
 }
 
 /* Scrollbar */
-.schedule-panel::-webkit-scrollbar { width: 6px; }
-.schedule-panel::-webkit-scrollbar-track { background: var(--bg); }
-.schedule-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.schedule-panel::-webkit-scrollbar, .parking-panel::-webkit-scrollbar { width: 6px; }
+.schedule-panel::-webkit-scrollbar-track, .parking-panel::-webkit-scrollbar-track { background: var(--bg); }
+.schedule-panel::-webkit-scrollbar-thumb, .parking-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* Responsive */
 @media (max-width: 900px) {
@@ -407,6 +593,7 @@ header {
   .schedule-panel { max-height: 60vh; }
   .walk-divider { padding-left: 24px; }
   .walk-line { margin-left: 8px; }
+  .parking-panel { max-height: 300px; }
 }
 </style>
 </head>
@@ -430,6 +617,23 @@ header {
   </div>
   <div class="map-panel">
     <div id="map"></div>
+    <button class="parking-toggle" id="parkingToggle" onclick="toggleParking()">Parking</button>
+    <div class="parking-panel" id="parkingPanel">
+      <div class="parking-header">
+        <span class="parking-title">NEARBY PARKING</span>
+        <div class="parking-controls">
+          <select class="parking-select" id="venueSelect" onchange="loadParking()">
+            <option value="">Select a venue...</option>
+          </select>
+          <div class="parking-sort">
+            <button class="sort-btn active" id="sortDist" onclick="sortParking('distance')">Distance</button>
+            <button class="sort-btn" id="sortPrice" onclick="sortParking('price')">Price</button>
+          </div>
+          <button class="close-parking" onclick="toggleParking()">&times;</button>
+        </div>
+      </div>
+      <div id="parkingList"></div>
+    </div>
   </div>
 </div>
 
@@ -437,7 +641,10 @@ header {
 <script>
 let scheduleEvents = [];
 let activeDay = null;
-let map, markerGroup, pathGroup;
+let map, markerGroup, pathGroup, parkingMarkerGroup;
+let parkingData = [];
+let parkingSort = 'distance';
+let parkingOpen = false;
 
 const DAY_LABELS = {
   '2026-03-12': 'THU Mar 12',
@@ -457,6 +664,7 @@ function initMap() {
   }).addTo(map);
   markerGroup = L.layerGroup().addTo(map);
   pathGroup = L.layerGroup().addTo(map);
+  parkingMarkerGroup = L.layerGroup().addTo(map);
 }
 
 function getSchedule() {
@@ -492,6 +700,7 @@ async function loadSchedule() {
   buildDayTabs();
   renderSchedule();
   renderMap();
+  populateVenueSelect();
 }
 
 function showEmpty() {
@@ -504,6 +713,154 @@ function showEmpty() {
     </div>`;
   markerGroup.clearLayers();
   pathGroup.clearLayers();
+}
+
+function populateVenueSelect() {
+  const sel = document.getElementById('venueSelect');
+  // Deduplicate venues from scheduled events
+  const venueMap = {};
+  scheduleEvents.forEach(e => {
+    if (e.venue && e.venue_lat && e.venue_lng) {
+      venueMap[e.venue] = { lat: e.venue_lat, lng: e.venue_lng, id: e.venue_id };
+    }
+  });
+  const venues = Object.entries(venueMap).sort((a, b) => a[0].localeCompare(b[0]));
+  sel.innerHTML = '<option value="">Select a venue...</option>' +
+    venues.map(([name, v]) =>
+      `<option value="${v.lat},${v.lng}" data-venue-id="${v.id}">${name}</option>`
+    ).join('');
+}
+
+function toggleParking() {
+  parkingOpen = !parkingOpen;
+  document.getElementById('parkingPanel').classList.toggle('open', parkingOpen);
+  document.getElementById('parkingToggle').classList.toggle('open', parkingOpen);
+  document.getElementById('parkingToggle').textContent = parkingOpen ? 'Hide Parking' : 'Parking';
+  if (parkingOpen && !parkingData.length) {
+    // Auto-select first venue if available
+    const sel = document.getElementById('venueSelect');
+    if (sel.options.length > 1 && !sel.value) {
+      sel.selectedIndex = 1;
+      loadParking();
+    } else if (sel.value) {
+      loadParking();
+    } else {
+      // Load all parking without distance
+      loadParking();
+    }
+  }
+  if (!parkingOpen) {
+    parkingMarkerGroup.clearLayers();
+  }
+  setTimeout(() => map.invalidateSize(), 100);
+}
+
+async function loadParking() {
+  const sel = document.getElementById('venueSelect');
+  const val = sel.value;
+  let url = '/api/parking';
+  if (val) {
+    const [lat, lng] = val.split(',');
+    url += `?lat=${lat}&lng=${lng}`;
+  }
+  const resp = await fetch(url);
+  const data = await resp.json();
+  parkingData = data.parking;
+  sortParking(parkingSort);
+}
+
+function sortParking(by) {
+  parkingSort = by;
+  document.getElementById('sortDist').classList.toggle('active', by === 'distance');
+  document.getElementById('sortPrice').classList.toggle('active', by === 'price');
+
+  if (by === 'distance') {
+    parkingData.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
+  } else {
+    parkingData.sort((a, b) => a.rate_day - b.rate_day);
+  }
+  renderParking();
+}
+
+function renderParking() {
+  const list = document.getElementById('parkingList');
+  if (!parkingData.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dim);">No parking data available.</div>';
+    return;
+  }
+
+  list.innerHTML = parkingData.map((p, i) => {
+    const distHtml = p.distance != null
+      ? `<div class="parking-distance">${p.distance} mi</div>
+         <div class="parking-walk-time">~${Math.max(Math.round(p.distance * 20), 1)} min walk</div>`
+      : '<div class="parking-distance" style="color:var(--text-dim);">--</div>';
+
+    const icon = p.type === 'garage' ? 'G' : 'L';
+
+    return `<div class="parking-item" onclick="panToParking(${p.lat}, ${p.lng}, '${esc(p.name)}')">
+      <div class="parking-icon">${icon}</div>
+      <div class="parking-details">
+        <div class="parking-name">${esc(p.name)}</div>
+        <div class="parking-addr">${esc(p.address)}</div>
+        ${p.notes ? `<div class="parking-notes">${esc(p.notes)}</div>` : ''}
+      </div>
+      <div class="parking-stats">
+        <div class="parking-price">$${p.rate_day}</div>
+        <div class="parking-price-label">/ day</div>
+        ${distHtml}
+        <div class="parking-spaces">${p.spaces} spots</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  renderParkingMarkers();
+}
+
+function renderParkingMarkers() {
+  parkingMarkerGroup.clearLayers();
+  if (!parkingOpen) return;
+
+  parkingData.forEach(p => {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        background: #17a2b8;
+        color: #fff;
+        width: 22px; height: 22px;
+        border-radius: 4px;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 11px;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      ">P</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    });
+
+    const marker = L.marker([p.lat, p.lng], { icon });
+    marker.bindPopup(`
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#17a2b8;">P ${esc(p.name)}</div>
+      <div style="color:#888;">${esc(p.address)}</div>
+      <div style="color:#28a745;font-weight:700;font-size:16px;">$${p.rate_day}/day</div>
+      <div style="color:#888;font-size:12px;">2hr: $${p.rate_2h} | ${p.spaces} spaces | ${p.type}</div>
+      ${p.notes ? `<div style="color:#888;font-size:11px;font-style:italic;margin-top:4px;">${esc(p.notes)}</div>` : ''}
+      ${p.distance != null ? `<div style="color:#5ba8f7;font-weight:600;margin-top:4px;">${p.distance} mi (~${Math.max(Math.round(p.distance * 20), 1)} min walk)</div>` : ''}
+    `, { maxWidth: 280 });
+    parkingMarkerGroup.addLayer(marker);
+  });
+}
+
+function panToParking(lat, lng, name) {
+  if (lat && lng && map) {
+    map.setView([lat, lng], 17);
+    parkingMarkerGroup.eachLayer(layer => {
+      if (layer.getLatLng &&
+          Math.abs(layer.getLatLng().lat - lat) < 0.0001 &&
+          Math.abs(layer.getLatLng().lng - lng) < 0.0001) {
+        layer.openPopup();
+      }
+    });
+  }
 }
 
 function buildDayTabs() {
@@ -588,8 +945,6 @@ function renderSchedule() {
           </div>
         </div>`;
       } else if (i > 0 && !e.walk) {
-        // Events on same day but walk data unavailable (first of a new date group from the API)
-        // Re-calculate if both have coords
         const prev = dayEvents[i - 1];
         if (prev.venue_lat && prev.venue_lng && e.venue_lat && e.venue_lng) {
           const dist = haversine(prev.venue_lat, prev.venue_lng, e.venue_lat, e.venue_lng);
@@ -675,15 +1030,6 @@ function renderMap() {
     bounds.push([e.venue_lat, e.venue_lng]);
     pathCoords.push([e.venue_lat, e.venue_lng]);
 
-    const marker = L.circleMarker([e.venue_lat, e.venue_lng], {
-      radius: 10,
-      fillColor: '#f0c040',
-      fillOpacity: 0.9,
-      color: '#fff',
-      weight: 2,
-    });
-
-    // Number label
     const numIcon = L.divIcon({
       className: '',
       html: `<div style="
@@ -731,7 +1077,6 @@ function removeFromSchedule(id) {
   let ids = getSchedule().filter(i => i !== id);
   saveSchedule(ids);
   scheduleEvents = scheduleEvents.filter(e => e.id !== id);
-  // Recalculate walks for remaining events
   recalcWalks();
   if (!scheduleEvents.length) {
     showEmpty();
@@ -740,10 +1085,10 @@ function removeFromSchedule(id) {
   buildDayTabs();
   renderSchedule();
   renderMap();
+  populateVenueSelect();
 }
 
 function recalcWalks() {
-  // Group by date and recalculate walk data
   const grouped = {};
   scheduleEvents.forEach(e => {
     if (!grouped[e.date]) grouped[e.date] = [];

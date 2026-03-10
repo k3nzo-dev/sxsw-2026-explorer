@@ -155,6 +155,51 @@ def api_schedule_events():
     return jsonify({"events": events})
 
 
+PARKING = [
+    {"name": "2nd Street Garage", "address": "201 E 2nd St", "lat": 30.2648, "lng": -97.7425, "rate_2h": 5, "rate_day": 10, "spaces": 1000, "type": "garage", "notes": "Convention Center garage. Cashless only."},
+    {"name": "5th Street Garage", "address": "601 E 5th St", "lat": 30.2685, "lng": -97.7378, "rate_2h": 5, "rate_day": 10, "spaces": 685, "type": "garage", "notes": "Convention Center garage. Cashless only."},
+    {"name": "City Hall Garage", "address": "200 Lavaca St", "lat": 30.2647, "lng": -97.7468, "rate_2h": 6, "rate_day": 12, "spaces": 750, "type": "garage", "notes": "EV charging stations available."},
+    {"name": "Frost Tower Garage", "address": "110 E 4th St", "lat": 30.2668, "lng": -97.7435, "rate_2h": 8, "rate_day": 15, "spaces": 400, "type": "garage", "notes": ""},
+    {"name": "301 Congress Garage", "address": "105 E 4th St", "lat": 30.2665, "lng": -97.7441, "rate_2h": 12, "rate_day": 30, "spaces": 350, "type": "garage", "notes": ""},
+    {"name": "500 W 2nd St Garage", "address": "500 W 2nd St", "lat": 30.2643, "lng": -97.7504, "rate_2h": 5, "rate_day": 10, "spaces": 300, "type": "garage", "notes": ""},
+    {"name": "Austin Central Library Garage", "address": "710 W Cesar Chavez St", "lat": 30.2637, "lng": -97.7520, "rate_2h": 3, "rate_day": 5, "spaces": 200, "type": "garage", "notes": "Best budget option. Farther west."},
+    {"name": "Lavaca Street Garage", "address": "641 Lavaca St", "lat": 30.2690, "lng": -97.7468, "rate_2h": 8, "rate_day": 20, "spaces": 500, "type": "garage", "notes": "Near 6th Street venues."},
+    {"name": "Silicon Labs Garage", "address": "200 W Cesar Chavez St", "lat": 30.2625, "lng": -97.7460, "rate_2h": 8, "rate_day": 15, "spaces": 400, "type": "garage", "notes": ""},
+    {"name": "Fairmont Austin Garage", "address": "101 Red River St", "lat": 30.2635, "lng": -97.7383, "rate_2h": 15, "rate_day": 35, "spaces": 500, "type": "garage", "notes": "Valet available from $28."},
+    {"name": "The Carmelo Lot", "address": "506 E 5th St", "lat": 30.2680, "lng": -97.7390, "rate_2h": 13, "rate_day": 48, "spaces": 80, "type": "lot", "notes": "Surface lot near Red River venues."},
+    {"name": "State Parking Garage", "address": "1201 San Jacinto Blvd", "lat": 30.2740, "lng": -97.7395, "rate_2h": 3, "rate_day": 8, "spaces": 600, "type": "garage", "notes": "State employee garage, public evenings/weekends."},
+    {"name": "UT Brazos Garage", "address": "210 E Martin Luther King Jr Blvd", "lat": 30.2810, "lng": -97.7410, "rate_2h": 5, "rate_day": 12, "spaces": 800, "type": "garage", "notes": "UT campus. ~15 min walk to 6th St."},
+    {"name": "Rainey Street Lot", "address": "90 Rainey St", "lat": 30.2590, "lng": -97.7385, "rate_2h": 10, "rate_day": 25, "spaces": 100, "type": "lot", "notes": "Near Rainey Street venues."},
+    {"name": "515 Congress Garage", "address": "515 Congress Ave", "lat": 30.2680, "lng": -97.7443, "rate_2h": 10, "rate_day": 20, "spaces": 300, "type": "garage", "notes": "Central Congress Ave location."},
+]
+
+
+@app.route("/api/parking")
+def api_parking():
+    """Return parking spots sorted by distance from a venue or coordinates."""
+    lat = request.args.get("lat", type=float)
+    lng = request.args.get("lng", type=float)
+    venue_id = request.args.get("venue_id", "")
+
+    # If venue_id provided, look up its coordinates
+    if venue_id and (lat is None or lng is None):
+        data = load_data()
+        venue = data.get("venues", {}).get(venue_id, {})
+        lat = venue.get("lat")
+        lng = venue.get("lng")
+
+    spots = []
+    for p in PARKING:
+        spot = dict(p)
+        if lat is not None and lng is not None:
+            spot["distance"] = round(haversine(lat, lng, p["lat"], p["lng"]), 2)
+        else:
+            spot["distance"] = None
+        spots.append(spot)
+
+    return jsonify({"parking": spots})
+
+
 @app.route("/api/rescrape", methods=["POST"])
 def api_rescrape():
     def run_scraper():
