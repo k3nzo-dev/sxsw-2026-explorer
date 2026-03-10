@@ -108,9 +108,12 @@ def haversine(lat1, lon1, lat2, lon2):
 @app.route("/")
 def index():
     data = load_data()
+    # Collect unique event types for the frontend
+    event_types = sorted(set(e.get("event_type", "") for e in data.get("events", []) if e.get("event_type")))
     return render_template(
         "index.html",
         genres=data.get("genres", []),
+        event_types=event_types,
         last_scraped=data.get("last_scraped", ""),
     )
 
@@ -125,12 +128,26 @@ def api_events():
     genre = request.args.get("genre")
     access = request.args.get("access")  # comma-separated
     search = request.args.get("search", "").lower()
+    free_only = request.args.get("free_only")  # "1" to show only free
+    age = request.args.get("age")  # "All Ages", "18+", "21+"
+    source_filter = request.args.get("source")  # "official", "unofficial", or ""
+
+    if source_filter == "official":
+        events = [e for e in events if e.get("is_official", True)]
+    elif source_filter == "unofficial":
+        events = [e for e in events if not e.get("is_official", True)]
 
     if day:
         events = [e for e in events if e.get("date") == day]
     if genre:
         genres = genre.split(",")
         events = [e for e in events if e.get("genre") in genres]
+    if free_only == "1":
+        events = [e for e in events if e.get("event_category") == "activation"
+                  or "Free" in e.get("access_levels", [])]
+    if age:
+        events = [e for e in events if e.get("age_policy", "").lower() == age.lower()
+                  or (age.lower() == "all ages" and not e.get("age_policy"))]
     if access:
         access_list = access.split(",")
         # Music Wristband holders can only attend Free events
@@ -149,6 +166,7 @@ def api_events():
             if search in e.get("name", "").lower()
             or search in e.get("venue", "").lower()
             or search in e.get("genre", "").lower()
+            or search in e.get("description", "").lower()
         ]
 
     # Proximity sorting
@@ -287,6 +305,29 @@ def api_rescrape():
     thread = threading.Thread(target=run_scraper)
     thread.start()
     return jsonify({"status": "Scraping started"})
+
+
+@app.route("/api/discover", methods=["POST"])
+def api_discover():
+    """Trigger off-schedule event discovery agent."""
+    def run_agent():
+        from offschedule_agent import discover_events
+        discover_events()
+
+    thread = threading.Thread(target=run_agent)
+    thread.start()
+    return jsonify({"status": "Discovery agent started"})
+
+
+@app.route("/api/offschedule-stats")
+def api_offschedule_stats():
+    """Return stats about off-schedule discoveries."""
+    cache_file = os.path.join(os.path.dirname(__file__), "offschedule_cache.json")
+    if os.path.exists(cache_file):
+        with open(cache_file) as f:
+            cache = json.load(f)
+        return jsonify(cache)
+    return jsonify({"discovered": [], "last_run": None, "sources_checked": []})
 
 
 @app.route("/api/artist/spotify/<path:name>")

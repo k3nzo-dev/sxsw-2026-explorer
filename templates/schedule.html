@@ -24,6 +24,10 @@
   --sched: #f0c040;
   --walk: #5ba8f7;
   --parking: #17a2b8;
+  --age-all: #28a745;
+  --age-18: #f0c040;
+  --age-21: #e74c3c;
+  --unofficial: #e67e22;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -457,6 +461,91 @@ header {
   background: var(--surface2);
   padding: 2px 8px;
   border-radius: 10px;
+}
+
+.badge-age {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.badge-age.all-ages { background: var(--age-all); }
+.badge-age.age-18 { background: var(--age-18); color: #000; }
+.badge-age.age-21 { background: var(--age-21); }
+
+.event-type-icon {
+  font-size: 16px;
+  margin-right: 4px;
+}
+
+.sponsor-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.badge-unofficial {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--unofficial);
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.desc-toggle {
+  font-size: 11px;
+  color: var(--unofficial);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.desc-toggle:hover { opacity: 0.8; }
+
+.event-description {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border-radius: 6px;
+  border-left: 3px solid var(--unofficial);
+  line-height: 1.5;
+  display: none;
+}
+
+.event-description.open { display: block; }
+
+.rsvp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--unofficial);
+  text-decoration: none;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--unofficial);
+  transition: all 0.15s;
+}
+
+.rsvp-link:hover { background: var(--unofficial); color: #fff; }
+
+.source-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .music-links {
@@ -1002,6 +1091,34 @@ function renderSchedule() {
         `<span class="badge-pill ${badgeCls(a)}" title="${a === 'Free' ? 'Free / Open' : a + ' Badge'}">${badgeLabels[a] || a[0]}</span>`
       ).join('');
 
+      // Age badge
+      const ap = (e.age_policy || '').toLowerCase();
+      let ageBadge = '';
+      if (ap.includes('21')) ageBadge = '<span class="badge-age age-21">21+</span>';
+      else if (ap.includes('18')) ageBadge = '<span class="badge-age age-18">18+</span>';
+      else if (ap.includes('all') || !ap) ageBadge = '<span class="badge-age all-ages">All Ages</span>';
+
+      // Event type icon
+      const typeIcon = e.event_category === 'unofficial' ? '\uD83D\uDD0D' : e.event_category === 'activation' ? '\uD83C\uDFF7\uFE0F' : '\uD83C\uDFB8';
+
+      // Sponsor
+      const sponsorHtml = e.sponsor ? `<span class="sponsor-label">by ${esc(e.sponsor)}</span>` : '';
+
+      // Unofficial
+      const isUnofficial = e.is_official === false;
+      const unofficialBadge = isUnofficial ? '<span class="badge-unofficial">Unofficial</span>' : '';
+      let descHtml = '';
+      if (isUnofficial && e.description) {
+        descHtml = `<button class="desc-toggle" onclick="event.stopPropagation(); toggleDesc('${e.id}')">More Info</button>
+          <div class="event-description" id="desc-${e.id}">${esc(e.description)}</div>`;
+      }
+      let rsvpHtml = '';
+      if (isUnofficial && e.metadata && e.metadata.rsvp_url) {
+        rsvpHtml = `<a class="rsvp-link" href="${esc(e.metadata.rsvp_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">RSVP</a>`;
+      }
+      const sourceHtml = isUnofficial && e.metadata && e.metadata.source
+        ? `<span class="source-label">via ${esc(e.metadata.source)}</span>` : '';
+
       const thumbHtml = e.thumbnail_url
         ? `<img class="event-thumb" src="${e.thumbnail_url}" alt="" loading="lazy" onerror="this.style.display='none'" />`
         : '';
@@ -1015,28 +1132,33 @@ function renderSchedule() {
         }
       }
 
-      html += `<div class="sched-event${conflictClass}" data-id="${e.id}" onclick="panTo(${e.venue_lat}, ${e.venue_lng})">
+      html += `<div class="sched-event${conflictClass}" data-id="${e.id}" onclick="panTo(${e.venue_lat}, ${e.venue_lng})" ${isUnofficial ? 'style="border-left:3px solid var(--unofficial);"' : ''}>
         <div class="event-time-col">
           <div class="event-time-start">${e.start_time || 'TBA'}</div>
           <div class="event-time-end">${e.end_time ? 'to ' + e.end_time : ''}</div>
         </div>
         ${thumbHtml}
         <div class="event-info">
-          <div class="event-name">${esc(e.name)}</div>
-          <div class="event-venue">${esc(e.venue)}</div>
-          <div class="event-address">${esc(e.venue_address)}</div>
+          <div class="event-name"><span class="event-type-icon">${typeIcon}</span>${esc(e.name)}</div>
+          <div class="event-venue">${esc(e.venue)} ${sourceHtml}</div>
+          <div class="event-address">${esc(e.venue_address)}${sponsorHtml ? ' ' + sponsorHtml : ''}</div>
           <div class="event-badges">
             ${badges}
+            ${unofficialBadge}
+            ${ageBadge}
+            ${rsvpHtml}
             ${e.genre ? `<span class="badge-genre">${e.genre}</span>` : ''}
-            <span class="music-links">
+            ${e.event_type && e.event_type !== 'Showcase' ? `<span class="badge-genre">${esc(e.event_type)}</span>` : ''}
+            ${isUnofficial ? '' : `<span class="music-links">
               <a class="music-link spotify" href="/api/artist/spotify/${encodeURIComponent(e.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open on Spotify">
                 <svg viewBox="0 0 24 24" fill="#fff"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
               </a>
               <a class="music-link apple" href="/api/artist/apple/${encodeURIComponent(e.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open on Apple Music">
                 <svg viewBox="0 0 24 24" fill="#fff"><path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043A5.022 5.022 0 0019.2.04a10.46 10.46 0 00-1.6-.04H6.4a10.46 10.46 0 00-1.6.04 5.022 5.022 0 00-2.374.852C1.308 1.624.563 2.624.246 3.934a9.23 9.23 0 00-.24 2.19C0 6.4 0 6.68 0 6.96v10.08c0 .28 0 .56.006.836.015.73.085 1.46.24 2.19.317 1.31 1.062 2.31 2.18 3.043A5.022 5.022 0 004.8 23.96c.533.027 1.067.04 1.6.04h11.2c.533 0 1.067-.013 1.6-.04a5.022 5.022 0 002.374-.852c1.118-.733 1.863-1.733 2.18-3.043.155-.73.225-1.46.24-2.19.006-.276.006-.556.006-.836V6.96c0-.28 0-.56-.006-.836zM17.5 17.5c0 .478-.378.857-.857.857H7.357A.856.856 0 016.5 17.5v-1.786c0-.478.378-.857.857-.857h.857V9.93l-1.008.504a.429.429 0 01-.573-.19l-.357-.716a.429.429 0 01.19-.573l2.572-1.286a.429.429 0 01.633.378v6.81h.972V9.073a.856.856 0 01.857-.857h2.357c1.42 0 2.572 1.152 2.572 2.572 0 1.088-.678 2.016-1.634 2.393.058.01.116.02.173.033a2.572 2.572 0 011.89 2.483V17.5z"/></svg>
               </a>
-            </span>
+            </span>`}
           </div>
+          ${descHtml}
         </div>
         <button class="remove-btn" onclick="event.stopPropagation(); removeFromSchedule('${e.id}')" title="Remove from schedule">&times;</button>
       </div>`;
@@ -1063,11 +1185,20 @@ function renderMap() {
     bounds.push([e.venue_lat, e.venue_lng]);
     pathCoords.push([e.venue_lat, e.venue_lng]);
 
+    // Color by age policy
+    const ap = (e.age_policy || '').toLowerCase();
+    let pinBg = '#28a745'; // green = all ages
+    let pinText = '#fff';
+    if (ap.includes('21')) { pinBg = '#e74c3c'; }
+    else if (ap.includes('18')) { pinBg = '#f0c040'; pinText = '#000'; }
+
+    const typeIcon = e.event_category === 'unofficial' ? '\uD83D\uDD0D' : e.event_category === 'activation' ? '\uD83C\uDFF7\uFE0F' : '\uD83C\uDFB8';
+
     const numIcon = L.divIcon({
       className: '',
       html: `<div style="
-        background: var(--sched, #f0c040);
-        color: #000;
+        background: ${pinBg};
+        color: ${pinText};
         width: 24px; height: 24px;
         border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
@@ -1079,12 +1210,17 @@ function renderMap() {
       iconAnchor: [12, 12],
     });
 
+    let ageTag = '';
+    if (ap.includes('21')) ageTag = '<span style="color:#e74c3c;font-weight:700;"> 21+</span>';
+    else if (ap.includes('18')) ageTag = '<span style="color:#f0c040;font-weight:700;"> 18+</span>';
+
     const numberedMarker = L.marker([e.venue_lat, e.venue_lng], { icon: numIcon });
     numberedMarker.bindPopup(`
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${i + 1}. ${esc(e.name)}</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${i + 1}. ${typeIcon} ${esc(e.name)}${ageTag}</div>
       <div style="color:#888;">${esc(e.venue)}</div>
       <div style="color:#28a745;font-weight:600;">${e.start_time || 'TBA'}${e.end_time ? ' - ' + e.end_time : ''}</div>
       <div style="color:#888;font-size:12px;">${esc(e.venue_address)}</div>
+      ${e.sponsor ? `<div style="color:#888;font-size:11px;font-style:italic;">by ${esc(e.sponsor)}</div>` : ''}
     `, { maxWidth: 280 });
 
     markerGroup.addLayer(numberedMarker);
@@ -1179,6 +1315,11 @@ function esc(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function toggleDesc(id) {
+  const el = document.getElementById('desc-' + id);
+  if (el) el.classList.toggle('open');
 }
 
 // Init

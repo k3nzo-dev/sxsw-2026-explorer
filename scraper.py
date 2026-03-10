@@ -50,6 +50,44 @@ def scrape_events(session, csrf_token):
     return hits
 
 
+FREE_EVENT_TYPES = ["Activation", "Party", "Exhibition", "Special Event"]
+
+
+def scrape_free_events(session, csrf_token):
+    """Scrape free events: Activations, Parties, Exhibitions, Special Events."""
+    headers = {**HEADERS, "X-CSRF-Token": csrf_token}
+    all_hits = []
+    for etype in FREE_EVENT_TYPES:
+        payload = {
+            "term": "",
+            "filters": [
+                {"models": ["event"], "field": "tags", "value": "Free"},
+                {"models": ["event"], "field": "event_type", "value": etype},
+            ],
+            "models": ["event"],
+            "page": 1,
+        }
+        try:
+            resp = session.post(f"{BASE_URL}/2026/search", json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            hits = data.get("hits", [])
+            print(f"  Found {len(hits)} Free {etype} events")
+            all_hits.extend(hits)
+        except Exception as e:
+            print(f"  Error scraping Free {etype}: {e}")
+    # Deduplicate by _id
+    seen = set()
+    unique = []
+    for h in all_hits:
+        hid = h.get("_id", "")
+        if hid not in seen:
+            seen.add(hid)
+            unique.append(h)
+    print(f"Found {len(unique)} total Free events (deduplicated)")
+    return unique
+
+
 def scrape_venue(session, venue_id):
     """Scrape venue details including address and coordinates."""
     resp = session.get(
@@ -80,10 +118,12 @@ def parse_event(hit, venue_cache):
 
     # Extract genre from links
     genre = ""
+    sponsor = ""
     for link in src.get("links", []):
-        if link.get("label") == "Genre":
+        if link.get("label") == "Genre" and not genre:
             genre = link.get("value", "")
-            break
+        if link.get("label") == "Presented By" and not sponsor:
+            sponsor = link.get("value", "")
 
     # Extract tags (e.g., "Free")
     tags = [l["value"] for l in src.get("links", []) if l.get("label") == "Tag"]
@@ -134,6 +174,10 @@ def parse_event(hit, venue_cache):
 
     lat_lon = loc.get("lat_lon", [None, None])
 
+    # Determine event category
+    event_type = src.get("event_type", "")
+    event_category = "activation" if event_type in FREE_EVENT_TYPES else "music"
+
     return {
         "id": hit.get("_id", ""),
         "name": src.get("name", ""),
@@ -149,9 +193,11 @@ def parse_event(hit, venue_cache):
         "venue_lng": lat_lon[1] if lat_lon else None,
         "access_levels": access_levels,
         "genre": genre,
-        "event_type": src.get("event_type", ""),
+        "event_type": event_type,
+        "event_category": event_category,
         "thumbnail_url": src.get("thumbnail_url", ""),
         "age_policy": v.get("age_policy", ""),
+        "sponsor": sponsor,
     }
 
 
@@ -160,8 +206,19 @@ def scrape_all():
     print("Getting session...")
     session, csrf_token = get_session()
 
-    print("Scraping events...")
+    print("Scraping music showcase events...")
     hits = scrape_events(session, csrf_token)
+
+    print("Scraping free events (activations, parties, exhibitions, special events)...")
+    free_hits = scrape_free_events(session, csrf_token)
+
+    # Merge and deduplicate
+    seen_ids = set(h.get("_id", "") for h in hits)
+    for fh in free_hits:
+        if fh.get("_id", "") not in seen_ids:
+            hits.append(fh)
+            seen_ids.add(fh.get("_id", ""))
+    print(f"Total unique events: {len(hits)}")
 
     # Collect unique venue IDs
     venue_ids = set()

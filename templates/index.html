@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SXSW 2026 Music Showcases</title>
+<title>SXSW 2026 Events Explorer</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 :root {
@@ -22,6 +22,10 @@
   --free: #9b59b6;
   --wristband: #d4a017;
   --sched: #f0c040;
+  --age-all: #28a745;
+  --age-18: #f0c040;
+  --age-21: #e74c3c;
+  --unofficial: #e67e22;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -314,6 +318,157 @@ input[type="text"]:focus, select:focus {
   border-radius: 10px;
 }
 
+.badge-age {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.badge-age.all-ages { background: var(--age-all); }
+.badge-age.age-18 { background: var(--age-18); color: #000; }
+.badge-age.age-21 { background: var(--age-21); }
+
+.event-type-icon {
+  font-size: 16px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.sponsor-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.badge-unofficial {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--unofficial);
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.confidence-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.confidence-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.confidence-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.confidence-dot.filled { background: var(--unofficial); }
+
+.desc-toggle {
+  font-size: 11px;
+  color: var(--unofficial);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.desc-toggle:hover { opacity: 0.8; }
+
+.event-description {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border-radius: 6px;
+  border-left: 3px solid var(--unofficial);
+  line-height: 1.5;
+  display: none;
+}
+
+.event-description.open { display: block; }
+
+.rsvp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--unofficial);
+  text-decoration: none;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--unofficial);
+  transition: all 0.15s;
+}
+
+.rsvp-link:hover { background: var(--unofficial); color: #fff; }
+
+.source-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.toggle-switch input { display: none; }
+
+.toggle-track {
+  width: 36px;
+  height: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--text-dim);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: var(--free);
+  border-color: var(--free);
+}
+
+.toggle-switch input:checked + .toggle-track::after {
+  left: 18px;
+  background: #fff;
+}
+
 .music-links {
   display: inline-flex;
   gap: 6px;
@@ -497,6 +652,7 @@ input[type="text"]:focus, select:focus {
   <div class="header-meta">
     <span id="lastScraped">Last updated: {{ last_scraped[:16] if last_scraped else 'Never' }}</span>
     <button class="btn btn--secondary" id="rescrapeBtn" onclick="rescrape()">Re-scrape</button>
+    <button class="btn" id="discoverBtn" onclick="runDiscovery()" style="background:var(--unofficial)">Discover Off-Schedule</button>
     <span class="scrape-status" id="scrapeStatus"></span>
   </div>
 </header>
@@ -541,6 +697,34 @@ input[type="text"]:focus, select:focus {
       <label class="badge-check"><input type="checkbox" value="Music Wristband" /><span class="badge-dot wristband">W</span><span class="badge-label">Music Wristband</span></label>
       <label class="badge-check"><input type="checkbox" value="Free" /><span class="badge-dot free">&#10003;</span><span class="badge-label">Free / Open</span></label>
     </div>
+  </div>
+
+  <div class="control-group">
+    <label>Free Only</label>
+    <label class="toggle-switch">
+      <input type="checkbox" id="freeToggle" />
+      <span class="toggle-track"></span>
+      <span>Show Only Free</span>
+    </label>
+  </div>
+
+  <div class="control-group">
+    <label>Age Requirement</label>
+    <select id="ageSelect" style="min-width: 120px;">
+      <option value="">Any Age</option>
+      <option value="All Ages">All Ages</option>
+      <option value="18+">18+</option>
+      <option value="21+">21+</option>
+    </select>
+  </div>
+
+  <div class="control-group">
+    <label>Source</label>
+    <select id="sourceSelect" style="min-width: 120px;">
+      <option value="">All Sources</option>
+      <option value="official">Official Only</option>
+      <option value="unofficial">Unofficial Only</option>
+    </select>
   </div>
 
   <div class="control-group">
@@ -600,11 +784,17 @@ async function fetchEvents() {
 
   const checkedAccess = [...document.querySelectorAll('.badge-filters input:checked')]
     .map(c => c.value);
+  const freeOnly = document.getElementById('freeToggle').checked;
+  const age = document.getElementById('ageSelect').value;
+  const source = document.getElementById('sourceSelect').value;
 
   if (day) params.set('day', day);
   if (genre) params.set('genre', genre);
   if (checkedAccess.length) params.set('access', checkedAccess.join(','));
   if (search) params.set('search', search);
+  if (freeOnly) params.set('free_only', '1');
+  if (age) params.set('age', age);
+  if (source) params.set('source', source);
   if (userLat != null) {
     params.set('lat', userLat);
     params.set('lng', userLng);
@@ -636,6 +826,51 @@ function renderEvents(events) {
       `<span class="badge-pill ${badgeCls(a)}" title="${a === 'Film & TV' ? 'Film & TV Badge' : a === 'Free' ? 'Free / Open' : a + ' Badge'}">${badgeLabels[a] || a[0]}</span>`
     ).join('');
 
+    // Age badge
+    const ap = (e.age_policy || '').toLowerCase();
+    let ageBadge = '';
+    if (ap.includes('21')) ageBadge = '<span class="badge-age age-21">21+</span>';
+    else if (ap.includes('18')) ageBadge = '<span class="badge-age age-18">18+</span>';
+    else if (ap.includes('all') || !ap) ageBadge = '<span class="badge-age all-ages">All Ages</span>';
+
+    // Event type icon
+    const typeIcon = e.event_category === 'unofficial' ? '\uD83D\uDD0D' : e.event_category === 'activation' ? '\uD83C\uDFF7\uFE0F' : '\uD83C\uDFB8';
+
+    // Sponsor
+    const sponsorHtml = e.sponsor ? `<span class="sponsor-label">by ${esc(e.sponsor)}</span>` : '';
+
+    // Unofficial badge & description
+    const isUnofficial = e.is_official === false;
+    const unofficialBadge = isUnofficial ? '<span class="badge-unofficial">Unofficial</span>' : '';
+
+    // Confidence dots (for unofficial)
+    let confidenceHtml = '';
+    if (isUnofficial && e.metadata && e.metadata.confidence_score) {
+      const score = e.metadata.confidence_score;
+      const filled = Math.round(score * 5);
+      const dots = Array.from({length: 5}, (_, i) =>
+        `<span class="confidence-dot ${i < filled ? 'filled' : ''}"></span>`
+      ).join('');
+      confidenceHtml = `<span class="confidence-bar">${dots} <span>${Math.round(score * 100)}%</span></span>`;
+    }
+
+    // Description toggle (for unofficial events with descriptions)
+    let descHtml = '';
+    if (isUnofficial && e.description) {
+      descHtml = `<button class="desc-toggle" onclick="event.stopPropagation(); toggleDesc('${e.id}')">More Info</button>
+        <div class="event-description" id="desc-${e.id}">${esc(e.description)}</div>`;
+    }
+
+    // RSVP link (for unofficial)
+    let rsvpHtml = '';
+    if (isUnofficial && e.metadata && e.metadata.rsvp_url) {
+      rsvpHtml = `<a class="rsvp-link" href="${esc(e.metadata.rsvp_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">RSVP</a>`;
+    }
+
+    // Source label
+    const sourceHtml = isUnofficial && e.metadata && e.metadata.source
+      ? `<span class="source-label">via ${esc(e.metadata.source)}</span>` : '';
+
     const distHtml = e.distance != null && e.distance < 999
       ? `<span class="distance-badge">${e.distance} mi</span>` : '';
 
@@ -646,27 +881,35 @@ function renderEvents(events) {
     const inSched = isInSchedule(e.id);
     const schedBtnHtml = `<button class="sched-btn ${inSched ? 'added' : ''}" onclick="event.stopPropagation(); toggleSchedule('${e.id}')" title="${inSched ? 'Remove from schedule' : 'Add to schedule'}">${inSched ? '&check;' : '+'}</button>`;
 
-    return `<div class="event-card" data-id="${e.id}" data-lat="${e.venue_lat}" data-lng="${e.venue_lng}" onclick="panTo(${e.venue_lat}, ${e.venue_lng})">
+    return `<div class="event-card" data-id="${e.id}" data-lat="${e.venue_lat}" data-lng="${e.venue_lng}" onclick="panTo(${e.venue_lat}, ${e.venue_lng})" ${isUnofficial ? 'style="border-left:3px solid var(--unofficial);"' : ''}>
       ${thumbHtml}
       <div class="event-info">
-        <div class="event-name">${esc(e.name)}</div>
+        <div class="event-name"><span class="event-type-icon">${typeIcon}</span>${esc(e.name)}</div>
         <div class="event-meta">
           <span class="time">${e.start_time}${e.end_time ? ' - ' + e.end_time : ''}</span>
           <span class="venue">${esc(e.venue)}</span>
           <span>${e.date}</span>
+          ${sponsorHtml}
+          ${sourceHtml}
         </div>
         <div class="event-badges">
           ${badges}
+          ${unofficialBadge}
+          ${ageBadge}
+          ${confidenceHtml}
           ${e.genre ? `<span class="badge-genre">${esc(e.genre)}</span>` : ''}
-          <span class="music-links">
+          ${e.event_type && e.event_type !== 'Showcase' ? `<span class="badge-genre">${esc(e.event_type)}</span>` : ''}
+          ${rsvpHtml}
+          ${isUnofficial ? '' : `<span class="music-links">
             <a class="music-link spotify" href="/api/artist/spotify/${encodeURIComponent(e.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open on Spotify">
               <svg viewBox="0 0 24 24" fill="#fff"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
             </a>
             <a class="music-link apple" href="/api/artist/apple/${encodeURIComponent(e.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open on Apple Music">
               <svg viewBox="0 0 24 24" fill="#fff"><path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043A5.022 5.022 0 0019.2.04a10.46 10.46 0 00-1.6-.04H6.4a10.46 10.46 0 00-1.6.04 5.022 5.022 0 00-2.374.852C1.308 1.624.563 2.624.246 3.934a9.23 9.23 0 00-.24 2.19C0 6.4 0 6.68 0 6.96v10.08c0 .28 0 .56.006.836.015.73.085 1.46.24 2.19.317 1.31 1.062 2.31 2.18 3.043A5.022 5.022 0 004.8 23.96c.533.027 1.067.04 1.6.04h11.2c.533 0 1.067-.013 1.6-.04a5.022 5.022 0 002.374-.852c1.118-.733 1.863-1.733 2.18-3.043.155-.73.225-1.46.24-2.19.006-.276.006-.556.006-.836V6.96c0-.28 0-.56-.006-.836zM17.5 17.5c0 .478-.378.857-.857.857H7.357A.856.856 0 016.5 17.5v-1.786c0-.478.378-.857.857-.857h.857V9.93l-1.008.504a.429.429 0 01-.573-.19l-.357-.716a.429.429 0 01.19-.573l2.572-1.286a.429.429 0 01.633.378v6.81h.972V9.073a.856.856 0 01.857-.857h2.357c1.42 0 2.572 1.152 2.572 2.572 0 1.088-.678 2.016-1.634 2.393.058.01.116.02.173.033a2.572 2.572 0 011.89 2.483V17.5z"/></svg>
             </a>
-          </span>
+          </span>`}
         </div>
+        ${descHtml}
       </div>
       <div class="event-actions">
         ${schedBtnHtml}
@@ -697,9 +940,25 @@ function renderMap(events) {
     const venue = evts[0].venue;
     const radius = Math.min(Math.max(count * 1.5 + 6, 8), 20);
 
+    // Determine pin color: unofficial venues get orange, otherwise age-based
+    const hasUnofficial = evts.some(e => e.is_official === false);
+    const allUnofficial = evts.every(e => e.is_official === false);
+
+    const ageCounts = { '21': 0, '18': 0, 'all': 0 };
+    evts.forEach(e => {
+      const ap = (e.age_policy || '').toLowerCase();
+      if (ap.includes('21')) ageCounts['21']++;
+      else if (ap.includes('18')) ageCounts['18']++;
+      else ageCounts['all']++;
+    });
+    let pinColor = '#28a745'; // green = all ages
+    if (allUnofficial) pinColor = '#e67e22'; // orange = all unofficial
+    else if (ageCounts['21'] >= ageCounts['18'] && ageCounts['21'] >= ageCounts['all']) pinColor = '#e74c3c'; // red = 21+
+    else if (ageCounts['18'] >= ageCounts['all']) pinColor = '#f0c040'; // yellow = 18+
+
     const marker = L.circleMarker([lat, lng], {
       radius: radius,
-      fillColor: '#28a745',
+      fillColor: pinColor,
       fillOpacity: 0.8,
       color: '#fff',
       weight: 1
@@ -709,13 +968,19 @@ function renderMap(events) {
       <div class="popup-name">${esc(venue)}</div>
       <div class="popup-venue">${esc(evts[0].venue_address)}</div>
       <hr style="border-color:#333;margin:6px 0;">
-      ${evts.slice(0, 15).map(e => `
-        <div style="margin:4px 0;">
+      ${evts.slice(0, 15).map(e => {
+        const icon = e.event_category === 'activation' ? '\uD83C\uDFF7\uFE0F' : '\uD83C\uDFB8';
+        const ap = (e.age_policy || '').toLowerCase();
+        let ageTag = '';
+        if (ap.includes('21')) ageTag = '<span style="color:#e74c3c;font-weight:700;font-size:11px;"> 21+</span>';
+        else if (ap.includes('18')) ageTag = '<span style="color:#f0c040;font-weight:700;font-size:11px;"> 18+</span>';
+        const unoffTag = e.is_official === false ? '<span style="color:#e67e22;font-weight:700;font-size:10px;"> UNOFFICIAL</span>' : '';
+        return `<div style="margin:4px 0;">
           <span class="popup-time">${e.start_time}</span>
-          <strong>${esc(e.name)}</strong>
+          ${icon} <strong>${esc(e.name)}</strong>${ageTag}${unoffTag}
           ${e.genre ? `<span style="color:#888;"> · ${e.genre}</span>` : ''}
-        </div>
-      `).join('')}
+        </div>`;
+      }).join('')}
       ${count > 15 ? `<div style="color:#888;margin-top:4px;">+ ${count - 15} more</div>` : ''}
     `;
     marker.bindPopup(popupContent, { maxHeight: 300, maxWidth: 320 });
@@ -904,9 +1169,50 @@ document.getElementById('searchInput').addEventListener('input', () => {
   debounceTimer = setTimeout(fetchEvents, 300);
 });
 
+document.getElementById('freeToggle').addEventListener('change', fetchEvents);
+document.getElementById('ageSelect').addEventListener('change', fetchEvents);
+document.getElementById('sourceSelect').addEventListener('change', fetchEvents);
+
 document.getElementById('locationInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') geocodeLocation();
 });
+
+function toggleDesc(id) {
+  const el = document.getElementById('desc-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+async function runDiscovery() {
+  const btn = document.getElementById('discoverBtn');
+  const status = document.getElementById('scrapeStatus');
+  btn.disabled = true;
+  status.textContent = 'Discovering off-schedule events...';
+  status.classList.add('active');
+
+  try {
+    await fetch('/api/discover', { method: 'POST' });
+    // Poll until done
+    const poll = setInterval(async () => {
+      try {
+        const resp = await fetch('/api/offschedule-stats');
+        const data = await resp.json();
+        if (data.last_run) {
+          clearInterval(poll);
+          const count = (data.discovered || []).length;
+          status.textContent = `Found ${count} unofficial event${count !== 1 ? 's' : ''}!`;
+          status.classList.remove('active');
+          btn.disabled = false;
+          setTimeout(() => { status.textContent = ''; }, 5000);
+          fetchEvents();
+        }
+      } catch (e) {}
+    }, 3000);
+  } catch (e) {
+    status.textContent = 'Discovery error';
+    status.classList.remove('active');
+    btn.disabled = false;
+  }
+}
 
 // Init
 initMap();
