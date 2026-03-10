@@ -646,7 +646,8 @@ input[type="text"]:focus, select:focus {
 <header>
   <div class="logo">SXSW <span>2026</span> MUSIC</div>
   <div class="nav-links">
-    <a href="/" class="nav-link active">Browse</a>
+    <a href="#" class="nav-link active" id="navEvents" onclick="setSource('official'); return false;">Events</a>
+    <a href="#" class="nav-link" id="navAI" onclick="setSource('unofficial'); return false;">AI Events</a>
     <a href="/schedule" class="nav-link" id="schedNav">My Schedule<span class="sched-count" id="schedCount" style="display:none">0</span></a>
   </div>
   <div class="header-meta">
@@ -718,14 +719,7 @@ input[type="text"]:focus, select:focus {
     </select>
   </div>
 
-  <div class="control-group">
-    <label>Source</label>
-    <select id="sourceSelect" style="min-width: 120px;">
-      <option value="">All Sources</option>
-      <option value="official">Official Only</option>
-      <option value="unofficial">Unofficial Only</option>
-    </select>
-  </div>
+  <input type="hidden" id="sourceSelect" value="official" />
 
   <div class="control-group">
     <label>Your Location</label>
@@ -1171,7 +1165,13 @@ document.getElementById('searchInput').addEventListener('input', () => {
 
 document.getElementById('freeToggle').addEventListener('change', fetchEvents);
 document.getElementById('ageSelect').addEventListener('change', fetchEvents);
-document.getElementById('sourceSelect').addEventListener('change', fetchEvents);
+function setSource(src) {
+  document.getElementById('sourceSelect').value = src;
+  document.getElementById('navEvents').classList.toggle('active', src === 'official');
+  document.getElementById('navAI').classList.toggle('active', src === 'unofficial');
+  fetchEvents();
+}
+
 
 document.getElementById('locationInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') geocodeLocation();
@@ -1216,7 +1216,13 @@ async function runDiscovery() {
 
 // Init
 initMap();
-fetchEvents();
+// Check URL param for source tab
+const urlSource = new URLSearchParams(window.location.search).get('source');
+if (urlSource === 'ai' || urlSource === 'unofficial') {
+  setSource('unofficial');
+} else {
+  setSource('official');
+}
 updateSchedCount();
 </script>
 </body>
