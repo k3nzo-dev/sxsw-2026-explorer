@@ -2,13 +2,91 @@
 import json
 import os
 import threading
-from flask import Flask, render_template, jsonify, request
+import time
+import requests as http_requests
+from flask import Flask, render_template, jsonify, request, redirect
 from geopy.geocoders import Nominatim
 from math import radians, cos, sin, asin, sqrt
 
 app = Flask(__name__)
 DATA_FILE = os.path.join(os.path.dirname(__file__), "data.json")
+ARTIST_CACHE_FILE = os.path.join(os.path.dirname(__file__), "artist_links_cache.json")
 geocoder = Nominatim(user_agent="sxsw-explorer-2026")
+
+# Spotify credentials (optional - set as env vars for direct artist links)
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
+_spotify_token = {"token": None, "expires": 0}
+
+
+def _load_artist_cache():
+    if os.path.exists(ARTIST_CACHE_FILE):
+        with open(ARTIST_CACHE_FILE) as f:
+            return json.load(f)
+    return {}
+
+
+def _save_artist_cache(cache):
+    with open(ARTIST_CACHE_FILE, "w") as f:
+        json.dump(cache, f)
+
+
+def _get_spotify_token():
+    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+        return None
+    if _spotify_token["token"] and time.time() < _spotify_token["expires"]:
+        return _spotify_token["token"]
+    try:
+        resp = http_requests.post(
+            "https://accounts.spotify.com/api/token",
+            data={"grant_type": "client_credentials"},
+            auth=(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET),
+            timeout=5,
+        )
+        if resp.ok:
+            data = resp.json()
+            _spotify_token["token"] = data["access_token"]
+            _spotify_token["expires"] = time.time() + data.get("expires_in", 3600) - 60
+            return _spotify_token["token"]
+    except Exception:
+        pass
+    return None
+
+
+def _lookup_spotify_artist(name):
+    token = _get_spotify_token()
+    if not token:
+        return None
+    try:
+        resp = http_requests.get(
+            "https://api.spotify.com/v1/search",
+            params={"q": name, "type": "artist", "limit": 1},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        if resp.ok:
+            items = resp.json().get("artists", {}).get("items", [])
+            if items:
+                return items[0]["external_urls"]["spotify"]
+    except Exception:
+        pass
+    return None
+
+
+def _lookup_apple_artist(name):
+    try:
+        resp = http_requests.get(
+            "https://itunes.apple.com/search",
+            params={"term": name, "entity": "musicArtist", "limit": 1},
+            timeout=5,
+        )
+        if resp.ok:
+            results = resp.json().get("results", [])
+            if results:
+                return results[0].get("artistLinkUrl")
+    except Exception:
+        pass
+    return None
 
 
 def load_data():
@@ -209,6 +287,42 @@ def api_rescrape():
     thread = threading.Thread(target=run_scraper)
     thread.start()
     return jsonify({"status": "Scraping started"})
+
+
+@app.route("/api/artist/spotify/<path:name>")
+def artist_spotify(name):
+    """Redirect to the artist's Spotify page, with caching."""
+    cache = _load_artist_cache()
+    key = f"spotify:{name.lower()}"
+    url = cache.get(key)
+    if not url:
+        url = _lookup_spotify_artist(name)
+        if url:
+            cache[key] = url
+            _save_artist_cache(cache)
+    if url:
+        return redirect(url)
+    # Fallback: Spotify search filtered to artists
+    from urllib.parse import quote
+    return redirect(f"https://open.spotify.com/search/{quote(name)}/artists")
+
+
+@app.route("/api/artist/apple/<path:name>")
+def artist_apple(name):
+    """Redirect to the artist's Apple Music page, with caching."""
+    cache = _load_artist_cache()
+    key = f"apple:{name.lower()}"
+    url = cache.get(key)
+    if not url:
+        url = _lookup_apple_artist(name)
+        if url:
+            cache[key] = url
+            _save_artist_cache(cache)
+    if url:
+        return redirect(url)
+    # Fallback: Apple Music search
+    from urllib.parse import quote
+    return redirect(f"https://music.apple.com/us/search?term={quote(name)}")
 
 
 if __name__ == "__main__":
